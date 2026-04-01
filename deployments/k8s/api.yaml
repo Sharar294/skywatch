@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skywatch-api
+  labels:
+    app: skywatch
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: skywatch
+  template:
+    metadata:
+      labels:
+        app: skywatch
+    spec:
+      containers:
+      - name: skywatch
+        image: skywatch-api:latest # Change this to your registry image
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            cpu: "200m"
+            memory: "128Mi"
+          requests:
+            cpu: "100m"
+            memory: "64Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: skywatch-service
+spec:
+  selector:
+    app: skywatch
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: LoadBalancer
