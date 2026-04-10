@@ -4,74 +4,80 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"skywatch/internal/service"
 	"syscall"
 	"time"
+
+	"skywatch/internal/service"
 )
 
 func main() {
-	// 1. Setup Signal Handling for Graceful Shutdown
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-	// 1. Use context for managing graceful shutdown.
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
+	fmt.Println("🚀 SkyWatch-API: Initializing gateway...")
 
-	// 2. Placeholder for Config Initialization
-	fmt.Println("SkyWatch-Ops: Initializing Foundation...")
-	// 2. Initialize the Redis store, connecting to the same K8s service.
+	// 1. Connect to the Shared Brain (Redis)
+	// We use the same internal K8s DNS name as the worker
 	store := service.NewStore("redis-service:6379")
-	fmt.Println("🛰  SkyWatch-API: Connected to data store.")
 
-	// 3. Basic Router
-	// 3. Setup the HTTP router (mux)
+	// 2. Define the Router (Multiplexer)
 	mux := http.NewServeMux()
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+
+	// 🟢 Health Check (For Kubernetes)
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, "{\"status\": \"UP\"}")
+		w.Write([]byte(`{"status": "UP", "service": "skywatch-api"}`))
 	})
 
-	// 4. Start Server in a Goroutine
-	// The new endpoint to serve flight data
-	http.HandleFunc("/api/v1/flights", func(w http.ResponseWriter, r *http.Request) {
+	// ✈️ Live Flight Data Endpoint (For Users)
+	mux.HandleFunc("/v1/flights", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		// Ask Redis for the latest snapshot
 		flights, err := store.GetLatestFlights(r.Context())
 		if err != nil {
-			http.Error(w, "Failed to retrieve flight data", http.StatusInternalServerError)
-			log.Printf("ERROR: Redis fetch failed: %v", err)
+			// If Redis is empty (worker hasn't run yet) or down
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte(`{"error": "Live data temporarily unavailable. Worker is syncing."}`))
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(flights)
+		// Send the data to the user
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"count":     len(flights),
+				"timestamp": time.Now().Format(time.RFC3339),
+			},
+			"data": flights,
+		})
 	})
 
-	// 4. Create and start the HTTP server.
-	server := &http.Server{Addr: ":8080", Handler: mux}
+	// 3. Configure the HTTP Server (SRE Best Practice)
+	srv := &http.Server{
+		Addr:         ":8080",
+		Handler:      mux,
+		ReadTimeout:  5 * time.Second, // Don't let slow clients hang connections
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+
+	// 4. Start Server in a Goroutine
 	go func() {
-		fmt.Println("📡 Ingestor listening on :8080")
-		if err := http.ListenAndServe(":8080", nil); err != nil {
-			log.Fatalf("Server failed: %v", err)
-		fmt.Println("📡 API server listening on :8080")
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server failed to start: %v", err)
+		fmt.Println("📡 API listening on port 8080")
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fmt.Printf("❌ Server error: %v\n", err)
+			os.Exit(1)
 		}
 	}()
 
-	// Block until signal received
+	// 5. Graceful Shutdown
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
-	fmt.Println("\n🛑 Shutting down gracefully...")
-	// 5. Wait for shutdown signal, then gracefully shut down the server.
-	<-ctx.Done()
-	fmt.Println("\n🛑 Shutting down API server gracefully...")
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer shutdownCancel()
 
-	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Printf("Forced server shutdown: %v", err)
-	}
+	fmt.Println("\n🛑 SkyWatch-API: Shutting down gracefully...")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	srv.Shutdown(ctx)
 }
