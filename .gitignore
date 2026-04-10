@@ -6,8 +6,8 @@ bin/
 *.so
 *.dylib
 # Specific service binaries if not in /bin
-api
-worker
+/api
+/worker
 
 # --- Configuration & Secrets ---
 .env
