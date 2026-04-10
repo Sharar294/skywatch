@@ -1,0 +1,134 @@
+# -----------------------------------------------------------------------------
+# 1. THE API SERVICE (User-facing)
+# -----------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skywatch-api
+  labels:
+    app: skywatch
+    component: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: skywatch
+      component: api
+  template:
+    metadata:
+      labels:
+        app: skywatch
+        component: api
+    spec:
+      containers:
+      - name: skywatch-api
+        image: skywatch-api:latest 
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            cpu: "200m"
+            memory: "128Mi"
+          requests:
+            cpu: "100m"
+            memory: "64Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: skywatch-service
+spec:
+  selector:
+    app: skywatch
+    component: api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: LoadBalancer
+
+---
+# -----------------------------------------------------------------------------
+# 2. THE WORKER (Ingestor - Internal only)
+# -----------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skywatch-worker
+  labels:
+    app: skywatch
+    component: worker
+spec:
+  replicas: 1 # We only need one ingestor for now to avoid duplicate API calls
+  selector:
+    matchLabels:
+      app: skywatch
+      component: worker
+  template:
+    metadata:
+      labels:
+        app: skywatch
+        component: worker
+    spec:
+      containers:
+      - name: skywatch-worker
+        image: skywatch-worker:latest
+        imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            cpu: "300m"
+            memory: "256Mi" # Worker needs more memory for data processing
+          requests:
+            cpu: "150m"
+            memory: "128Mi"
+        # Note: No ports or Service needed for the Worker yet 
+        # as it pushes data to the DB and doesn't listen for requests.
+
+---
+# -----------------------------------------------------------------------------
+# 3. THE DATA STORE (Shared Brain)
+# -----------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skywatch-redis
+  labels:
+    app: skywatch
+    component: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skywatch
+      component: redis
+  template:
+    metadata:
+      labels:
+        app: skywatch
+        component: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+spec:
+  selector:
+    app: skywatch
+    component: redis
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379

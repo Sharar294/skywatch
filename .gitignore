@@ -1,0 +1,43 @@
+# --- Binaries & Compiled Files ---
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+# Specific service binaries if not in /bin
+api
+worker
+
+# --- Configuration & Secrets ---
+.env
+configs/.env
+*.env.*
+!configs/.env.example
+
+# --- Go Dependencies & Workspaces ---
+vendor/
+go.work
+go.work.sum
+
+# --- Docker & Logs ---
+*.log
+.docker/
+docker-compose.override.yml
+
+# --- Kubernetes & Infrastructure ---
+.kube/
+terraform.tfstate*
+.terraform/
+
+# --- IDE & OS Specific ---
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# --- Testing & Coverage ---
+*.out
+*.test
+coverage.txt
