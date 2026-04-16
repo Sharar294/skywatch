@@ -12,6 +12,7 @@ bin/
 # --- Configuration & Secrets ---
 .env
 configs/.env
+**/.env
 *.env.*
 !configs/.env.example
 

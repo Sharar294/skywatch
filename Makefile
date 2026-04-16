@@ -10,7 +10,7 @@ docker-build:
 	docker build -t skywatch-api:latest -f deployments/Dockerfile .
 
 k8s-deploy:
-	kubectl apply -f deployments/k8s/api.yaml
+	kubectl apply -f deployments/k8s/skywatch.yaml
 
 # Build local binaries
 build-api:

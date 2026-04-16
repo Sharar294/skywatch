@@ -15,11 +15,12 @@ type OpenSkyClient struct {
 }
 
 // NewOpenSkyClient initializes a client with a timeout—crucial for SRE!
-func NewOpenSkyClient() *OpenSkyClient {
+func NewOpenSkyClient(client *http.Client) *OpenSkyClient {
+	if client == nil {
+		client = &http.Client{Timeout: 10 * time.Second} // Fallback
+	}
 	return &OpenSkyClient{
-		httpClient: &http.Client{
-			Timeout: 10 * time.Second, // Don't let a slow API hang your worker
-		},
+		httpClient: client,
 		baseURL: "https://opensky-network.org/api/states/all",
 	}
 }
