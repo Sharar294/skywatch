@@ -10,7 +10,20 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"skywatch/internal/service"
+)
+
+var (
+	apiRequestsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "skywatch_api_requests_total",
+			Help: "Total number of HTTP requests to the API",
+		},
+		[]string{"endpoint", "method"},
+	)
 )
 
 func main() {
@@ -25,6 +38,8 @@ func main() {
 
 	// 🟢 Health Check (For Kubernetes)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		apiRequestsTotal.WithLabelValues("/health", r.Method).Inc()
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status": "UP", "service": "skywatch-api"}`))
@@ -32,6 +47,8 @@ func main() {
 
 	// ✈️ Live Flight Data Endpoint (For Users)
 	mux.HandleFunc("/v1/flights", func(w http.ResponseWriter, r *http.Request) {
+		apiRequestsTotal.WithLabelValues("/v1/flights", r.Method).Inc()
+
 		w.Header().Set("Content-Type", "application/json")
 
 		// Ask Redis for the latest snapshot
@@ -52,6 +69,9 @@ func main() {
 			"data": flights,
 		})
 	})
+
+	// 📊 Prometheus Metrics Endpoint
+	mux.Handle("/metrics", promhttp.Handler())
 
 	// 3. Configure the HTTP Server (SRE Best Practice)
 	srv := &http.Server{

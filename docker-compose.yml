@@ -52,3 +52,12 @@ services:
       - KAFKA_BROKERS=kafka:9092
     depends_on:
       - kafka
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - api
