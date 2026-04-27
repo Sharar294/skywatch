@@ -6,9 +6,10 @@ COPY go.mod go.sum* ./
 RUN go mod download
 COPY . .
 
-# Build both binaries at once
+# Build all binaries at once
 RUN CGO_ENABLED=0 GOOS=linux go build -o bin/api ./cmd/api/main.go
 RUN CGO_ENABLED=0 GOOS=linux go build -o bin/worker ./cmd/worker/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o bin/analyzer ./cmd/analyzer/main.go
 
 # Stage 2: API Final Image
 FROM gcr.io/distroless/static-debian12 AS api-final
@@ -27,3 +28,10 @@ COPY configs/.env /configs/.env
 USER nonroot:nonroot
 # No EXPOSE needed for worker
 ENTRYPOINT ["/skywatch-worker"]
+
+# Stage 4: Analyzer Final Image
+FROM gcr.io/distroless/static-debian12 AS analyzer-final
+WORKDIR /
+COPY --from=builder /app/bin/analyzer /skywatch-analyzer
+USER nonroot:nonroot
+ENTRYPOINT ["/skywatch-analyzer"]

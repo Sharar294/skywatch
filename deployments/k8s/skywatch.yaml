@@ -133,56 +133,56 @@ spec:
       port: 6379
       targetPort: 6379
 
-# ---
-# # -----------------------------------------------------------------------------
-# # 4. THE ANALYZER (gRPC & Kafka Consumer)
-# # -----------------------------------------------------------------------------
-# apiVersion: apps/v1
-# kind: Deployment
-# metadata:
-#   name: skywatch-analyzer
-#   labels:
-#     app: skywatch
-#     component: analyzer
-# spec:
-#   replicas: 1
-#   selector:
-#     matchLabels:
-#       app: skywatch
-#       component: analyzer
-#   template:
-#     metadata:
-#       labels:
-#         app: skywatch
-#         component: analyzer
-#     spec:
-#       containers:
-#       - name: skywatch-analyzer
-#         image: skywatch-analyzer:latest
-#         imagePullPolicy: IfNotPresent
-#         ports:
-#         - containerPort: 50051 # Standard gRPC port
-#         env:
-#         - name: KAFKA_BROKERS
-#           value: "kafka-cluster:9092" # Example internal Kafka DNS
-#         resources:
-#           limits:
-#             cpu: "500m"
-#             memory: "512Mi" # ML Inference might need more memory
-#           requests:
-#             cpu: "250m"
-#             memory: "256Mi"
-# ---
-# apiVersion: v1
-# kind: Service
-# metadata:
-#   name: analyzer-service
-# spec:
-#   selector:
-#     app: skywatch
-#     component: analyzer
-#   ports:
-#     - name: grpc
-#       protocol: TCP
-#       port: 50051
-#       targetPort: 50051
+---
+# -----------------------------------------------------------------------------
+# 4. THE ANALYZER (gRPC & Kafka Consumer)
+# -----------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skywatch-analyzer
+  labels:
+    app: skywatch
+    component: analyzer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skywatch
+      component: analyzer
+  template:
+    metadata:
+      labels:
+        app: skywatch
+        component: analyzer
+    spec:
+      containers:
+      - name: skywatch-analyzer
+        image: skywatch-analyzer:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 50051 # Standard gRPC port
+        env:
+        - name: KAFKA_BROKERS
+          value: "kafka-cluster:9092" # Example internal Kafka DNS
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi" # ML Inference might need more memory
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analyzer-service
+spec:
+  selector:
+    app: skywatch
+    component: analyzer
+  ports:
+    - name: grpc
+      protocol: TCP
+      port: 50051
+      targetPort: 50051

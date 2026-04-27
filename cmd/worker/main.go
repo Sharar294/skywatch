@@ -2,6 +2,7 @@ package main
 
 import (
 	"context" // Added this for Redis operations
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/segmentio/kafka-go"
 	"golang.org/x/oauth2/clientcredentials"
 	"skywatch/internal/service"
 )
@@ -56,6 +58,18 @@ func main() {
 	}
 	store := service.NewStore(redisAddr)
 
+	// Initialize Kafka Writer
+	kafkaBrokers := os.Getenv("KAFKA_BROKERS")
+	if kafkaBrokers == "" {
+		kafkaBrokers = "kafka-cluster:9092"
+	}
+	kafkaWriter := &kafka.Writer{
+		Addr:     kafka.TCP(kafkaBrokers),
+		Topic:    "flight-vectors",
+		Balancer: &kafka.LeastBytes{},
+	}
+	defer kafkaWriter.Close()
+
 	ticker := time.NewTicker(60 * time.Second)
 	defer ticker.Stop()
 
@@ -77,6 +91,24 @@ func main() {
 		} else {
 			fmt.Printf("💾 [%s] Successfully synced to Redis\n", time.Now().Format("15:04:05"))
 		}
+
+		// C. Publish to Kafka for Analyzer
+		flightsJSON, err := json.Marshal(flights)
+		if err != nil {
+			fmt.Printf("❌ [%s] JSON Marshal Error for Kafka: %v\n", time.Now().Format("15:04:05"), err)
+		} else {
+			err = kafkaWriter.WriteMessages(ctx,
+				kafka.Message{
+					Key:   []byte(fmt.Sprintf("flights-%d", time.Now().Unix())),
+					Value: flightsJSON,
+				},
+			)
+			if err != nil {
+				fmt.Printf("❌ [%s] Kafka Publish Error: %v\n", time.Now().Format("15:04:05"), err)
+			} else {
+				fmt.Printf("📤 [%s] Published to Kafka topic 'flight-vectors'\n", time.Now().Format("15:04:05"))
+			}
+		}
 	}
 
 	go func() {
@@ -85,7 +117,7 @@ func main() {
 			select {
 			case <-ticker.C:
 				runIngestion() // Run again every 60 seconds
-
+				
 			case <-stop:
 				return
 			}
