@@ -5,3 +5,7 @@ scrape_configs:
   - job_name: 'skywatch-api'
     static_configs:
       - targets: ['api:8080']
+
+  - job_name: 'skywatch-analyzer'
+    static_configs:
+      - targets: ['analyzer:8081']

@@ -48,8 +48,11 @@ services:
       context: .
       dockerfile: deployments/Dockerfile
       target: analyzer-final
+    ports:
+      - "8081:8081"
     environment:
       - KAFKA_BROKERS=kafka:9092
+      - METRICS_ADDR=:8081
     depends_on:
       - kafka
 
@@ -61,3 +64,21 @@ services:
       - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
     depends_on:
       - api
+      - analyzer
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./configs/grafana/provisioning:/etc/grafana/provisioning
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  grafana-data:
