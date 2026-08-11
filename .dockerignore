@@ -1,0 +1,26 @@
+# Keep secrets out of the build context entirely (belt-and-suspenders with the
+# Dockerfile no longer COPYing them into any layer).
+configs/.env
+**/.env
+*.env.*
+!configs/.env.example
+
+# Version control & CI
+.git
+.gitignore
+
+# Local build artifacts
+bin/
+*.exe
+*.test
+*.out
+coverage.txt
+
+# Docs & tooling not needed at build time
+*.md
+deployments/k8s/
+
+# OS / editor cruft
+.DS_Store
+.idea/
+.vscode/

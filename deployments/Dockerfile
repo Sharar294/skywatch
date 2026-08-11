@@ -15,7 +15,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o bin/analyzer ./cmd/analyzer/main.go
 FROM gcr.io/distroless/static-debian12 AS api-final
 WORKDIR /
 COPY --from=builder /app/bin/api /skywatch-api
-COPY configs/.env /configs/.env
+# Secrets are injected at runtime (compose env_file / K8s Secrets), never baked in.
 USER nonroot:nonroot
 EXPOSE 8080
 ENTRYPOINT ["/skywatch-api"]
@@ -24,7 +24,7 @@ ENTRYPOINT ["/skywatch-api"]
 FROM gcr.io/distroless/static-debian12 AS worker-final
 WORKDIR /
 COPY --from=builder /app/bin/worker /skywatch-worker
-COPY configs/.env /configs/.env
+# Secrets are injected at runtime (compose env_file / K8s Secrets), never baked in.
 USER nonroot:nonroot
 # No EXPOSE needed for worker
 ENTRYPOINT ["/skywatch-worker"]
